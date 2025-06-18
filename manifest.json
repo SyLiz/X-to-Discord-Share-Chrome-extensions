@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "X to Discord Share",
+  "version": "1.0",
+  "permissions": ["storage", "scripting", "activeTab"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}

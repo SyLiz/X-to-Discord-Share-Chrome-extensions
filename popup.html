@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 12px;
+        min-width: 250px;
+      }
+      input {
+        width: 100%;
+        padding: 8px;
+        margin-top: 8px;
+        box-sizing: border-box;
+        word-break: break-all; /* Break long URLs */
+        overflow-x: auto; /* Allow horizontal scrolling if needed */
+        white-space: nowrap;
+      }
+      button {
+        margin-top: 10px;
+        width: 100%;
+        padding: 8px;
+        background-color: #5865f2;
+        color: white;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px; /* spacing between icon and text */
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Discord Webhook URL</h3>
+    <input type="text" id="webhook" placeholder="Paste webhook URL here" />
+    <button id="save">Save</button>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
