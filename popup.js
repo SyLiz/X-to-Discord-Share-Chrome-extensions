@@ -18,7 +18,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   saveBtn.addEventListener("click", () => {
     const url = input.value.trim();
-    if (url.startsWith("https://discord.com/api/webhooks/")) {
+    if (
+      url.startsWith("https://discord.com/api/webhooks/") ||
+      url.startsWith("https://discordapp.com/api/webhooks/")
+    ) {
       chrome.storage.local.set({ webhookUrl: url }, () => {
         saveBtn.innerHTML = `${smallCheckmarkSVG} <span style="margin-left: 4px;">Saved!</span>`;
         setTimeout(() => (saveBtn.textContent = "Save"), 1500);
