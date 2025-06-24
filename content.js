@@ -320,7 +320,9 @@ function initializeShareButtons() {
 
   // Handle URL changes (for SPA navigation)
   let currentUrl = window.location.href;
-  const urlObserver = new MutationObserver(() => {
+
+  // Use a more reliable method to detect URL changes
+  const checkForUrlChange = () => {
     if (window.location.href !== currentUrl) {
       currentUrl = window.location.href;
       // Small delay to let the page content load
@@ -328,13 +330,34 @@ function initializeShareButtons() {
         addShareButtons();
       }, 500);
     }
-  });
+  };
 
-  // Watch for URL changes in the address bar
-  urlObserver.observe(document.querySelector("title"), {
-    childList: true,
-    subtree: true,
-  });
+  // Watch for URL changes using multiple methods
+  const titleElement = document.querySelector("title");
+  if (titleElement) {
+    const urlObserver = new MutationObserver(checkForUrlChange);
+    urlObserver.observe(titleElement, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  // Also listen for popstate events (back/forward navigation)
+  window.addEventListener("popstate", checkForUrlChange);
+
+  // Listen for pushstate/replacestate events
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+
+  history.pushState = function (...args) {
+    originalPushState.apply(history, args);
+    setTimeout(checkForUrlChange, 100);
+  };
+
+  history.replaceState = function (...args) {
+    originalReplaceState.apply(history, args);
+    setTimeout(checkForUrlChange, 100);
+  };
 }
 
 // Initialize when the page is ready
