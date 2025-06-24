@@ -270,4 +270,76 @@ function showSuccess(button) {
   }, 1500);
 }
 
-setInterval(addShareButtons, 3000);
+// Improved approach using MutationObserver instead of setInterval
+function initializeShareButtons() {
+  // Add buttons to existing posts
+  addShareButtons();
+
+  // Set up MutationObserver to watch for new posts
+  const observer = new MutationObserver((mutations) => {
+    let shouldCheckForNewPosts = false;
+
+    mutations.forEach((mutation) => {
+      // Check if new nodes were added
+      if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+        mutation.addedNodes.forEach((node) => {
+          // Check if the added node is an article (post) or contains articles
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.tagName === "ARTICLE" || node.querySelector("article")) {
+              shouldCheckForNewPosts = true;
+            }
+          }
+        });
+      }
+    });
+
+    // Only run addShareButtons if we detected new posts
+    if (shouldCheckForNewPosts) {
+      // Use requestAnimationFrame to batch multiple rapid changes
+      requestAnimationFrame(() => {
+        addShareButtons();
+      });
+    }
+  });
+
+  // Start observing the document body for changes
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+
+  // Also handle dynamic content loading (for infinite scroll, etc.)
+  // Listen for scroll events to handle lazy-loaded content
+  let scrollTimeout;
+  window.addEventListener("scroll", () => {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      addShareButtons();
+    }, 100); // Small delay to batch scroll events
+  });
+
+  // Handle URL changes (for SPA navigation)
+  let currentUrl = window.location.href;
+  const urlObserver = new MutationObserver(() => {
+    if (window.location.href !== currentUrl) {
+      currentUrl = window.location.href;
+      // Small delay to let the page content load
+      setTimeout(() => {
+        addShareButtons();
+      }, 500);
+    }
+  });
+
+  // Watch for URL changes in the address bar
+  urlObserver.observe(document.querySelector("title"), {
+    childList: true,
+    subtree: true,
+  });
+}
+
+// Initialize when the page is ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeShareButtons);
+} else {
+  initializeShareButtons();
+}
