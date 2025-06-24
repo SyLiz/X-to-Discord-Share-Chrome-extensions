@@ -66,7 +66,7 @@ function createShareButton() {
     if (link) {
       chrome.storage.local.get("webhookUrl", (data) => {
         if (data.webhookUrl) {
-          sendToDiscord(link, button, data.webhookUrl).finally(() => {
+          sendToDiscord(link, button, data.webhookUrl, post).finally(() => {
             // Unlock debounce after request completes (success or error)
             isProcessing = false;
           });
@@ -104,7 +104,7 @@ function addShareButtons() {
       if (link) {
         chrome.storage.local.get("webhookUrl", (data) => {
           if (data.webhookUrl) {
-            sendToDiscord(link, button, data.webhookUrl);
+            sendToDiscord(link, button, data.webhookUrl, post);
           } else {
             alert(
               "Please set your Discord webhook URL in the extension popup."
@@ -118,16 +118,134 @@ function addShareButtons() {
   });
 }
 
-function getPostUrl(post) {
-  const anchor = post.querySelector('a[href*="/status/"]');
-  return anchor ? `https://x.com${anchor.getAttribute("href")}` : null;
+function hasMultipleImages(post) {
+  // Primary method: Check for multiple image containers (most reliable)
+  const imageContainers = post.querySelectorAll('[data-testid="tweetPhoto"]');
+
+  if (imageContainers.length > 1) {
+    return true;
+  }
+
+  // Secondary method: Check for multiple unique photo numbers in links
+  const photoLinks = post.querySelectorAll('a[href*="/photo/"]');
+
+  if (photoLinks.length > 1) {
+    const photoNumbers = Array.from(photoLinks)
+      .map((link) => {
+        const match = link.getAttribute("href").match(/\/photo\/(\d+)/);
+        return match ? match[1] : null;
+      })
+      .filter((num) => num !== null);
+
+    const uniqueNumbers = new Set(photoNumbers);
+
+    if (uniqueNumbers.size > 1) {
+      return true;
+    }
+  }
+
+  // Tertiary method: Check for image grid structure
+  const imageGrid = post.querySelector('[data-testid="tweetPhoto"]');
+  if (imageGrid) {
+    const gridImages = imageGrid.querySelectorAll('img[src*="pbs.twimg.com"]');
+
+    if (gridImages.length > 1) {
+      return true;
+    }
+  }
+
+  // Quaternary method: Check for multiple actual post images (most conservative)
+  const imageElements = post.querySelectorAll('img[src*="pbs.twimg.com"]');
+  const actualImages = Array.from(imageElements).filter((img) => {
+    const src = img.src;
+    // Only count actual post images, not profile pictures or other small images
+    return (
+      src.includes("pbs.twimg.com/media/") &&
+      (src.includes("large") || src.includes("medium") || src.includes("small"))
+    );
+  });
+
+  if (actualImages.length > 1) {
+    return true;
+  }
+
+  return false;
 }
 
-function sendToDiscord(postUrl, button, webhookUrl) {
+function getPostUrl(post) {
+  // First, check if this post has multiple images
+  if (hasMultipleImages(post)) {
+    // Look for photo links to extract the base URL
+    const photoLinks = post.querySelectorAll('a[href*="/photo/"]');
+
+    if (photoLinks.length > 0) {
+      // Get the first photo link and extract the base URL
+      let firstPhotoUrl = photoLinks[0].getAttribute("href");
+
+      // Handle relative URLs
+      if (firstPhotoUrl.startsWith("/")) {
+        firstPhotoUrl = "https://x.com" + firstPhotoUrl;
+      }
+
+      // Extract base URL by removing the /photo/number part
+      const baseUrlMatch = firstPhotoUrl.match(
+        /^(https?:\/\/[^\/]+)(\/status\/[^\/]+)/
+      );
+
+      if (baseUrlMatch) {
+        const baseUrl = baseUrlMatch[1] + baseUrlMatch[2];
+        return baseUrl;
+      }
+    }
+
+    // Fallback: try to find any status link in the post
+    const statusLink = post.querySelector('a[href*="/status/"]');
+    if (statusLink) {
+      const fallbackUrl = `https://x.com${statusLink.getAttribute("href")}`;
+      return fallbackUrl;
+    }
+  }
+
+  // Fallback to original behavior for single images or no images
+  const anchor = post.querySelector('a[href*="/status/"]');
+  const result = anchor ? `https://x.com${anchor.getAttribute("href")}` : null;
+  return result;
+}
+
+function sendToDiscord(postUrl, button, webhookUrl, post) {
+  // Check if current DOM URL has photo/{number} and is the same post
+  let finalUrl = postUrl;
+  const currentUrl = window.location.href;
+
+  // Check if current URL contains photo/{number}
+  const photoMatch = currentUrl.match(/\/photo\/(\d+)/);
+
+  if (photoMatch) {
+    // Extract the base URL by removing the photo/{number} part from current URL
+    const currentBaseUrl = currentUrl.replace(/\/photo\/\d+.*$/, "");
+    const postBaseUrl = postUrl.replace(/\/photo\/\d+.*$/, "");
+
+    // Check if the base URLs match (same post)
+    // Also check if postUrl is already the base URL (no photo/ in it)
+    if (currentBaseUrl === postBaseUrl || currentBaseUrl === postUrl) {
+      // Use the DOM URL with photo/{number} instead
+      finalUrl = currentUrl;
+    }
+  }
+
+  // Legacy logic for multiple image posts (keeping for backward compatibility)
+  if (post && hasMultipleImages(post) && finalUrl === postUrl) {
+    // For multiple image posts, remove photo/{num} from the URL to get base URL
+    const cleanedUrl = postUrl.replace(/\/photo\/\d+.*$/, "");
+    if (cleanedUrl !== postUrl) {
+      finalUrl = cleanedUrl;
+    }
+  }
+
   return fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: `📢 ${postUrl}` }),
+    body: JSON.stringify({ content: `📢 ${finalUrl}` }),
   })
     .then((res) => {
       if (res.ok) {
