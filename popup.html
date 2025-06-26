@@ -1,41 +1,169 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <title>X to Discord Share - Settings</title>
     <style>
       body {
-        font-family: sans-serif;
-        margin: 12px;
-        min-width: 250px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        min-width: 350px;
+        background-color: #ffffff;
+        color: #0f1419;
       }
-      input {
+      .container {
+        padding: 16px;
+      }
+      h3 {
+        margin-top: 0;
+        font-size: 19px;
+        font-weight: 700;
+        border-bottom: 1px solid #eff3f4;
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+      }
+      .form-container {
+        margin-bottom: 24px;
+      }
+      .form-group {
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 500;
+        font-size: 14px;
+        color: #536471;
+      }
+      input[type="text"],
+      input[type="url"] {
         width: 100%;
-        padding: 8px;
-        margin-top: 8px;
+        padding: 10px;
         box-sizing: border-box;
-        word-break: break-all; /* Break long URLs */
-        overflow-x: auto; /* Allow horizontal scrolling if needed */
-        white-space: nowrap;
+        border: 1px solid #cfd9de;
+        border-radius: 6px;
+        font-size: 15px;
       }
-      button {
-        margin-top: 10px;
+      button#add-webhook-btn {
         width: 100%;
-        padding: 8px;
-        background-color: #5865f2;
-        color: white;
+        padding: 10px;
+        background-color: #0f1419;
+        color: #ffffff;
         border: none;
         cursor: pointer;
+        border-radius: 9999px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .button-group {
         display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .secondary-btn {
+        flex-grow: 1;
+        padding: 10px;
+        background-color: #e7eaed;
+        color: #0f1419;
+        border: none;
+        cursor: pointer;
+        border-radius: 9999px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      li {
+        display: flex;
+        justify-content: space-between;
         align-items: center;
-        justify-content: center;
-        gap: 6px; /* spacing between icon and text */
+        padding: 12px 4px;
+        border-bottom: 1px solid #eff3f4;
+      }
+      .webhook-name {
+        font-weight: 500;
+      }
+      .delete-btn {
+        background-color: transparent;
+        color: #f4212e;
+        border: 1px solid #f4212e;
+        padding: 5px 12px;
+        border-radius: 9999px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 14px;
+      }
+      .delete-btn:hover {
+        background-color: rgba(244, 33, 46, 0.1);
+      }
+      .edit-btn {
+        background-color: transparent;
+        color: #1d9bf0;
+        border: 1px solid #1d9bf0;
+        padding: 5px 12px;
+        border-radius: 9999px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 14px;
+      }
+      .edit-btn:hover {
+        background-color: rgba(29, 155, 240, 0.1);
+      }
+      .empty-state {
+        color: #536471;
+        text-align: center;
+        padding: 20px;
+        border: none;
+      }
+      .webhook-actions {
+        display: flex;
+        gap: 8px;
+      }
+      li:last-child {
+        border-bottom: none;
       }
     </style>
   </head>
   <body>
-    <h3>Discord Webhook URL</h3>
-    <input type="text" id="webhook" placeholder="Paste webhook URL here" />
-    <button id="save">Save</button>
+    <div class="container">
+      <h3>Add New Webhook</h3>
+      <div class="form-container">
+        <div class="form-group">
+          <label for="webhook-name">Name</label>
+          <input
+            type="text"
+            id="webhook-name"
+            placeholder="e.g., Memes Channel"
+          />
+        </div>
+        <div class="form-group">
+          <label for="webhook-url">URL</label>
+          <input
+            type="url"
+            id="webhook-url"
+            placeholder="Paste webhook URL here"
+          />
+        </div>
+        <div class="button-group">
+          <button id="add-webhook-btn">Add Webhook</button>
+          <button
+            id="cancel-edit-btn"
+            class="secondary-btn"
+            style="display: none"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
 
+      <h3>Saved Webhooks</h3>
+      <ul id="webhooks-list">
+        <!-- Webhooks will be listed here -->
+      </ul>
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>

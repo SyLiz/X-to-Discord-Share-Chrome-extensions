@@ -64,14 +64,21 @@ function createShareButton() {
     const post = button.closest("article");
     const link = getPostUrl(post);
     if (link) {
-      chrome.storage.local.get("webhookUrl", (data) => {
-        if (data.webhookUrl) {
-          sendToDiscord(link, button, data.webhookUrl, post).finally(() => {
-            // Unlock debounce after request completes (success or error)
-            isProcessing = false;
-          });
+      chrome.storage.local.get("webhooks", (data) => {
+        const webhooks = data.webhooks;
+        if (webhooks && webhooks.length > 0) {
+          // If there's only one webhook, send directly
+          if (webhooks.length === 1) {
+            sendToDiscord(link, button, webhooks[0].url, post).finally(() => {
+              isProcessing = false;
+            });
+          } else {
+            // If there are multiple, show the selector
+            showWebhookSelector(link, button, webhooks, post);
+            isProcessing = false; // Unlock immediately after showing selector
+          }
         } else {
-          alert("Please set your Discord webhook URL in the extension popup.");
+          alert("Please set up your Discord webhooks in the extension popup.");
           isProcessing = false;
         }
       });
@@ -83,7 +90,132 @@ function createShareButton() {
   return button;
 }
 
+function showWebhookSelector(link, button, webhooks, post) {
+  // Remove existing selector if any
+  const existingSelector = document.getElementById(
+    "discord-webhook-context-backdrop"
+  );
+  if (existingSelector) {
+    existingSelector.remove();
+  }
+
+  // Create a full-page backdrop to capture clicks
+  const backdrop = document.createElement("div");
+  backdrop.id = "discord-webhook-context-backdrop";
+  Object.assign(backdrop.style, {
+    position: "absolute",
+    top: "0",
+    left: "0",
+    width: "100%",
+    height: `${document.body.scrollHeight}px`,
+    backgroundColor: "transparent",
+    zIndex: "9998",
+  });
+
+  const rect = button.getBoundingClientRect();
+  const selectorContainer = document.createElement("div");
+  selectorContainer.id = "discord-webhook-selector";
+
+  // --- Theme detection for the menu ---
+  const bodyStyles = getComputedStyle(document.body);
+  const backgroundColor = bodyStyles.backgroundColor;
+
+  let menuBackgroundColor, menuBorderColor, textColor, hoverBackgroundColor;
+
+  if (backgroundColor === "rgb(0, 0, 0)") {
+    // Lights Out (Black) theme
+    menuBackgroundColor = "rgb(0, 0, 0)";
+    menuBorderColor = "rgb(47, 51, 54)";
+    textColor = "rgb(247, 249, 249)";
+    hoverBackgroundColor = "rgba(255, 255, 255, 0.03)";
+  } else if (backgroundColor === "rgb(21, 32, 43)") {
+    // Dim theme
+    menuBackgroundColor = "rgb(21, 32, 43)";
+    menuBorderColor = "rgba(255, 255, 255, 0.2)";
+    textColor = "#f7f9f9";
+    hoverBackgroundColor = "rgba(255, 255, 255, 0.05)";
+  } else {
+    // Light theme
+    menuBackgroundColor = "rgb(255, 255, 255)";
+    menuBorderColor = "rgba(0, 0, 0, 0.1)";
+    textColor = "#0f1419";
+    hoverBackgroundColor = "rgba(0, 0, 0, 0.025)";
+  }
+
+  Object.assign(selectorContainer.style, {
+    position: "absolute",
+    top: `${rect.top + window.scrollY + 82}px`,
+    left: `${rect.right + window.scrollX}px`,
+    transform: "translate(-100%, -100%)",
+    backgroundColor: menuBackgroundColor,
+    border: `1px solid ${menuBorderColor}`,
+    borderRadius: "12px",
+    padding: "0px",
+    zIndex: "9999",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+    minWidth: "220px",
+  });
+
+  // Clicks on the backdrop will close it.
+  backdrop.addEventListener("click", () => {
+    document.body.removeChild(backdrop);
+  });
+
+  // Clicks on the menu itself shouldn't close it.
+  selectorContainer.addEventListener("click", (e) => e.stopPropagation());
+
+  const list = document.createElement("ul");
+  Object.assign(list.style, {
+    listStyle: "none",
+    padding: "0",
+    margin: "0",
+  });
+
+  webhooks.forEach((webhook) => {
+    const item = document.createElement("li");
+    const webhookButton = document.createElement("button");
+    webhookButton.textContent = webhook.name;
+    Object.assign(webhookButton.style, {
+      width: "100%",
+      padding: "10px 12px",
+      border: "none",
+      borderRadius: "8px",
+      backgroundColor: "transparent",
+      cursor: "pointer",
+      textAlign: "left",
+      color: textColor,
+      fontSize: "15px",
+      fontWeight: "bold",
+    });
+    webhookButton.onmouseover = () => {
+      webhookButton.style.backgroundColor = hoverBackgroundColor;
+    };
+    webhookButton.onmouseout = () => {
+      webhookButton.style.backgroundColor = "transparent";
+    };
+
+    webhookButton.onclick = (e) => {
+      e.stopPropagation();
+      sendToDiscord(link, button, webhook.url, post);
+      document.body.removeChild(backdrop);
+    };
+    item.appendChild(webhookButton);
+    list.appendChild(item);
+  });
+  selectorContainer.appendChild(list);
+
+  backdrop.appendChild(selectorContainer);
+  document.body.appendChild(backdrop);
+}
+
+function detectAndStoreTheme() {
+  const colorScheme = getComputedStyle(document.documentElement).colorScheme;
+  const theme = colorScheme === "dark" ? "dark" : "light";
+  chrome.storage.local.set({ theme: theme });
+}
+
 function addShareButtons() {
+  detectAndStoreTheme(); // Check theme when adding buttons
   const posts = document.querySelectorAll("article");
 
   posts.forEach((post) => {
@@ -98,22 +230,6 @@ function addShareButtons() {
     actionBar.style.boxSizing = "border-box";
 
     const button = createShareButton();
-
-    button.onclick = () => {
-      const link = getPostUrl(post);
-      if (link) {
-        chrome.storage.local.get("webhookUrl", (data) => {
-          if (data.webhookUrl) {
-            sendToDiscord(link, button, data.webhookUrl, post);
-          } else {
-            alert(
-              "Please set your Discord webhook URL in the extension popup."
-            );
-          }
-        });
-      }
-    };
-
     actionBar.appendChild(button);
   });
 }
@@ -250,9 +366,26 @@ function sendToDiscord(postUrl, button, webhookUrl, post) {
     .then((res) => {
       if (res.ok) {
         showSuccess(button);
+      } else {
+        // Handle Discord API rate limits or other errors
+        res
+          .json()
+          .then((body) => {
+            alert(
+              `Failed to send to Discord: ${body.message || "Unknown error"}`
+            );
+          })
+          .catch(() => {
+            alert(
+              "Failed to send to Discord and could not parse error response."
+            );
+          });
       }
     })
-    .catch(console.error);
+    .catch((err) => {
+      console.error("Error sending to Discord:", err);
+      alert(`An error occurred: ${err.message}`);
+    });
 }
 
 function showSuccess(button) {
@@ -328,6 +461,7 @@ function initializeShareButtons() {
       // Small delay to let the page content load
       setTimeout(() => {
         addShareButtons();
+        detectAndStoreTheme(); // Also check on navigation
       }, 500);
     }
   };
@@ -366,3 +500,17 @@ if (document.readyState === "loading") {
 } else {
   initializeShareButtons();
 }
+
+// Observe for theme changes on the body
+const themeObserver = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    if (mutation.attributeName === "style") {
+      detectAndStoreTheme();
+    }
+  });
+});
+
+themeObserver.observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ["style"],
+});
